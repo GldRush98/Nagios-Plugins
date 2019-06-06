@@ -81,6 +81,7 @@ while test -n "$1"; do
             ;;
         -C)
             up_crit=$2
+            shift
             ;;
         *)
             echo "ERROR - Unknown argument: $1"
