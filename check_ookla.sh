@@ -7,7 +7,7 @@
 # All speed values are treated as Mbps.
 # Note: The very first time the check is run a license accpetance message will break the output. This shouldn't happen again after the first run.
 # Written by Nick Overstreet https://www.nickoverstreet.com/
-# Last modified 11-6-2019
+# Last modified 11-7-2019
 ##################################
 
 #This needs to be the full path to the speedtest binary
@@ -25,7 +25,6 @@ script_name=`basename $0`
 print_version() {
 	echo "$script_name: Version 1.1 (C)2019, Nick Overstreet (https://www.nickoverstreet.com/)"
 	echo "Speedtest binary: `sudo $speedtest --version | head -n 1` ($speedtest)"
-	exit 3
 }
 
 print_help() {
@@ -52,7 +51,6 @@ print_help() {
 	echo "    Prints program version information."
 	echo "  -h)"
 	echo "    Prints this help information."
-	exit 3
 }
 
 while test -n "$1"; do
@@ -143,33 +141,36 @@ down=`echo $(( $down_bytes / 125000 ))`
 up_bytes=`echo ${results[6]} | xargs printf "%.*f\n" 0`
 up=`echo $(( $up_bytes / 125000 ))`
 
-#Get the output set up with some performance data
+#Get the output set up with some performance data (easier to read it this way)
 perfdata="| Download=${down}Mbps;$down_warn;$down_crit Upload=${up}Mbps;$up_warn;$up_crit"
 output="Download: $down Mbps, Upload: $up Mbps $perfdata"
-state=3
+down_state=""
+up_state=""
+ok_state=""
+exit_code=3
 
 #Do checks, set the output and exit state
 if [ "$down_warn" -ge "$down" ]; then
-	output="WARNING (Download) - $output"
-	state=1
+	down_state="WARNING (Download) - "
+	exit_code=1
 fi
 if [ "$up_warn" -ge "$up" ]; then
-	output="WARNING (Upload) - $output"
-	state=1
+	up_state="WARNING (Upload) - "
+	exit_code=1
 fi
 if [ "$down_crit" -ge "$down" ]; then
-	output="CRITICAL (Download) - $output"
-	state=2
+	down_state="CRITICAL (Download) - "
+	exit_code=2
 fi
 if [ "$up_crit" -ge "$up" ]; then
-	output="CRITICAL (Upload) - $output"
-	state=2
+	up_state="CRITICAL (Upload) - "
+	exit_code=2
 fi
 if [ "$up" -gt "$up_warn" ] && [ "$down" -gt "$down_warn" ]; then
-	output="OK - $output"
-	state=0
+	ok_state="OK - "
+	exit_code=0
 fi
 
 #Finally send our output and exit with the appropriate code
-echo $output
-exit $state
+echo "${down_state}${up_state}${ok_state} $output"
+exit $exit_code
