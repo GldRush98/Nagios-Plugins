@@ -1,5 +1,5 @@
 #!/bin/bash
-##################################
+###################################
 # A nagios plugin to monitor your internet speed
 # This plugin uses the output of Ookla's speedtest CLI client (https://speedtest.net/apps/cli)
 # You must specify the full path to the speedtest binary on your system below.
@@ -8,7 +8,7 @@
 # Note: The very first time the check is run a license accpetance message will break the output. This shouldn't happen again after the first run.
 # Written by Nick Overstreet https://www.nickoverstreet.com/
 # Last modified 11-7-2019
-##################################
+###################################
 
 #This needs to be the full path to the speedtest binary
 speedtest="/usr/local/nagios/libexec/speedtest"
