@@ -1,5 +1,5 @@
 #!/bin/bash
-###################################
+##################################
 # A nagios plugin to monitor your internet speed
 # This plugin uses the output of Ookla's speedtest CLI client (https://speedtest.net/apps/cli)
 # You must specify the full path to the speedtest binary on your system below.
@@ -7,8 +7,8 @@
 # All speed values are treated as Mbps.
 # Note: The very first time the check is run a license accpetance message will break the output. This shouldn't happen again after the first run.
 # Written by Nick Overstreet https://www.nickoverstreet.com/
-# Last modified 11-7-2019
-###################################
+# Last modified 1-5-2020
+##################################
 
 #This needs to be the full path to the speedtest binary
 speedtest="/usr/local/nagios/libexec/speedtest"
@@ -127,7 +127,8 @@ IFS=$'\t' read -r -a results <<<"$cli_output"
 #9 Results URL - https://www.speedtest.net/result/c/guid
 
 #Check and make sure the array is the proper size which should mean the speedtest worked, if not try and output some useful information to see what went wrong
-if [ "${#results[@]}" -ne "10" ]; then
+#10 should be the proper count, but 9 is also apparently possible if Ookla's results servers are failing to return a proper result URL
+if [ "${#results[@]}" -ne "10" ] && [ "${#results[@]}" -ne "9" ]; then
 	echo "UNKNOWN - SpeedTest results were bad (results array was wrong size)"
 	echo "CLI Output: $cli_output"
 	echo "CLI Exit Code: $cli_exit"
