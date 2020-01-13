@@ -95,7 +95,7 @@ rem GOTO EOF
 @exit 1
 
 :OK-0
-@ECHO OK: - Loss=%LST%%%, Avrg=%AVG%ms^|rta=%AVG%ms;%wrta%;%crta% pl=%LST%%%
+@ECHO OK: Loss=%LST%%%, Avrg=%AVG%ms^|rta=%AVG%ms;%wrta%;%crta% pl=%LST%%%
 rem GOTO EOF
 @Exit 0
 
