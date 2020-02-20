@@ -48,17 +48,18 @@ set AVG=%AVG:s=%
 set LST=%LST:(=%
 set LST=%LST:~0,-1%
 
-REM ########  special handler for TTL error in VPN checks #######
-FOR /F "tokens=3 delims= " %%k in ('findstr /c:"TTL expired" %randomfilename%') do (
-set LST=100
-set AVG=1000
-)
-rem echo %LST%
-
-REM ########  special handler for complete loss #######
+REM ########  special handlers for complete loss or ttl expiration  #######
 FOR /F "tokens=3 delims= " %%k in ('findstr /c:"Destination host unreachable" %randomfilename%') do (
 set LST=100
-set AVG=1000
+set AVG=4000
+)
+FOR /F "tokens=3 delims= " %%k in ('findstr /c:"Destination net unreachable" %randomfilename%') do (
+set LST=100
+set AVG=4000
+)
+FOR /F "tokens=3 delims= " %%k in ('findstr /c:"TTL expired" %randomfilename%') do (
+set LST=100
+set AVG=4000
 )
 
 DEL /Q %randomfilename%
