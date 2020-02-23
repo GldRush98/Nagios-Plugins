@@ -1,8 +1,9 @@
+@echo OFF
+SETLOCAL
 REM Original code from nagios exchange (https://exchange.nagios.org/directory/Plugins/Operating-Systems/Windows/NRPE/ping_remote-2Ebat-%28-with-check_nrpe-and-nsclient%29/details)
 REM Code updates by Nick Overstreet (https://www.nickoverstreet.com/)
 REM Last modified: 2/23/2020
-@echo OFF
-SETLOCAL
+
 REM ensure all required info is present
 IF "%1"=="" goto Usage
 IF "%2"=="" goto Usage
