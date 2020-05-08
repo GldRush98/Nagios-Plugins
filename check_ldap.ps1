@@ -12,15 +12,15 @@
   Optionally, the group path to search for its existence on the specified LDAP server, wrap in quotes
 
 .EXAMPLE
-  .\check_ldap.ps1 contoso-dc1 'OU=Employees,DC=contoso,DC=com'
+  .\check_ldap.ps1 contoso-dc1 "OU=Employees,DC=contoso,DC=com"
   The above will check that contoso-dc1 is reachable via LDAP, and that the Employees OU exists inside the contoso.com domain on it
 
 .NSCLIENT CONFIGURATION
   [Wrapped Scripts]
-  check_ldap=check_ldap.ps1 $ARG1$ '$ARG2$'
+  check_ldap=check_ldap.ps1 $ARG1$ "$ARG2$"
 
 .LAST MODIFIED
-  12-12-2018
+  5-8-2020
 #>
 
 [CmdletBinding()]
