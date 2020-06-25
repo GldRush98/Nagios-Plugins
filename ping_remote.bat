@@ -2,7 +2,7 @@
 SETLOCAL
 REM Original code from nagios exchange (https://exchange.nagios.org/directory/Plugins/Operating-Systems/Windows/NRPE/ping_remote-2Ebat-%28-with-check_nrpe-and-nsclient%29/details)
 REM Code updates by Nick Overstreet (https://www.nickoverstreet.com/)
-REM Last modified: 2/23/2020
+REM Last modified: 6/25/2020
 
 REM ensure all required info is present
 IF "%1"=="" goto Usage
@@ -94,9 +94,9 @@ set exit=1
 goto Finish
 
 :Usage
-echo Usage:ping_remote ^<host_address^> ^<Packets^>^<wrta^>,^<wpl^> ^<crta^>,^<cpl^>
-echo example: ./check_nrpe -H 172.19.48.139 -c ping_remote -t 90 -a 172.19.88.30 65 450,1 700,5 (run from Nagios)
-echo        : ping_remote 192.168.0.1 5 200,1 400,10 (run from Windows)
+echo Usage:ping_remote ^<host_address^> ^<Packets^>^<wrta^> ^<wpl^> ^<crta^> ^<cpl^>
+echo example: ./check_nrpe -H 172.19.48.139 -c ping_remote -t 90 -a 172.19.88.30 5 450 1 700 5 (run from Nagios)
+echo        : ping_remote 192.168.0.1 5 200 1 400 10 (run from Windows)
 echo        : (wpl\cpl are in percent, without the "%%%" sign)
 set exit=3
 
