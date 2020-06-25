@@ -14,13 +14,15 @@
 .EXAMPLE
   .\check_ldap.ps1 contoso-dc1 "OU=Employees,DC=contoso,DC=com"
   The above will check that contoso-dc1 is reachable via LDAP, and that the Employees OU exists inside the contoso.com domain on it
+  NCPA example:
+  -t '<token>' -P 5693 -M 'plugins/check_ldap.ps1' -q 'args=contoso-dc1 OU=Employees;DC=contoso;DC=com'
 
 .NSCLIENT CONFIGURATION
   [Wrapped Scripts]
   check_ldap=check_ldap.ps1 $ARG1$ "$ARG2$"
 
 .LAST MODIFIED
-  5-8-2020
+  6-25-2020
 #>
 
 [CmdletBinding()]
@@ -30,6 +32,7 @@ param (
 	[string]$ADPath
 )
 $LDAP = "LDAP://" + $ADServer + ":389" #You can switch this port to 636 if you want to use LDAPS (secure) instead
+$ADPath = $ADPath.replace(';',',') #This replaces ; with , so that you cna use this check with NCPA
 try {
 	$Connection = [ADSI]($LDAP)
 	If ($Connection.Path) {
