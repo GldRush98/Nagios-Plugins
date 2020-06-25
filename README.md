@@ -9,6 +9,8 @@ A plugin or two I've written or modified for use in Nagios
 
 **check_ldap.ps1**	- [*Windows*] Check for LDAP connectivity and optionally run a search query on the specified server.
 
+**check_nic_speed.php** = [*Windows*] Checks your network card's link speed, to make sure it is connected at what it is supposed to (i.e. gigabit).
+
 **check_ookla.sh**	- [*Linux*] Monitors your internets speed with Ookla's speedtest CLI program.
 
 **ping_remote.bat** - [*Windows*] Allow Windows to ping hosts and return the results via NSClient++.
