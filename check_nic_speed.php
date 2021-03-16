@@ -2,7 +2,7 @@
 /*
 A php script to determine the nic speed in Windows. Yes, php, I know and I'm sorry, but it was the easiest way for me to manipulate the data and not have to rely on powershell
 Written by: Nick Overstreet <https://www.nickoverstreet.com/>
-Last Modified: 6/24/2020
+Last Modified: 3/16/2021
 
 Append a php handler to the end of your ncpa.cfg file:
 .php = php $plugin_name $plugin_args
@@ -28,16 +28,18 @@ if (count($output) < 4)
 	exit(3);
 }
 
-array_shift($output); //Remove header
+$header = array_shift($output); //Remove header (save it for calculating line length)
 array_pop($output); //Remove blank line
 array_pop($output); //Remove blank line
 
+$str_locate = strpos($header, "Speed");
 foreach ($output as $line)
 {
 	//Create an array of nic-speed pairs
-	//Note: these substr cutoffs may need to be adjusted based on what nics are in the machine (find by running the wmic command and counting the characters, including spaces):
-	$nic_push = str_replace(" ", "_", trim(substr($line,0,37))); //Replace spaces in NIC name with underscores so we can pass the nic name as one single arg
-	$speed_push = trim(substr($line,37,11))/1000000;
+	//Note: these substr cutoffs are automatically calculated based on the location of the word Speed in the header.
+	//If Windows changes this output at some point, this may need to be adjusted tweaked (find by running the wmic command and counting the characters, including spaces):
+	$nic_push = str_replace(" ", "_", trim(substr($line,0,$str_locate))); //Replace spaces in NIC name with underscores so we can pass the nic name as one single arg
+	$speed_push = trim(substr($line,$str_locate,11))/1000000;
 	array_push($nicspeed, array($nic_push, $speed_push));
 }
 #print_r($nicspeed); //Debug
@@ -65,10 +67,10 @@ foreach ($nicspeed as $thisnic)
 		$found = true;
 		if ($speed == $expected_speed)
 		{
-			echo "OK: $nic is at $speed Mbps|NIC_Speed=" . $speed . "Mbps;";
+			echo "OK: $nic link at $speed Mbps|NIC_Speed=" . $speed . "Mbps;";
 			$return = 0;
 		}else{
-			echo "WARNING: $nic is at $speed Mbps, expected to be at $expected_speed Mbps|NIC_Speed=" . $speed . "Mbps;";
+			echo "WARNING: $nic link at $speed Mbps, expected to be at $expected_speed Mbps|NIC_Speed=" . $speed . "Mbps;";
 			$return = 1;
 		}
 	}//Not the nic we're looking for
