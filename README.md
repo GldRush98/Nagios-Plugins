@@ -13,4 +13,6 @@ A plugin or two I've written or modified for use in Nagios
 
 **check_ookla.sh**	- [*Linux*] Monitors your internets speed with Ookla's speedtest CLI program.
 
+**check_yum.sh** - [*Linux*] A quick and simple script to check for updates via yum on Redhat/CentOS systems, with some perfdata.
+
 **ping_remote.bat** - [*Windows*] Allow Windows to ping hosts and return the results via your Nagios agent.
