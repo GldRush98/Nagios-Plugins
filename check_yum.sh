@@ -9,7 +9,7 @@ if [ "$UPDATES" -gt "0" ]; then
 		echo "YUM WARNING: $UPDATES Non-Security Updates Available | security_updates_available=0 non_security_updates_available=$UPDATES total_updates_available=$UPDATES"
 		exit 1
 	else
-		$NS_UPDATES=`expr $UPDATES - $SECURITY_COUNT`
+		NS_UPDATES=$((UPDATES-SECURITY_COUNT))
 		echo "YUM CRITICAL: $SECURITY_COUNT SECURITY Updates Available. $NS_UPDATES Non-Security Updates Available. | security_updates_available=$SECURITY_COUNT non_security_updates_available=$NS_UPDATES total_updates_available=$UPDATES"
 		exit 2
 	fi
