@@ -29,7 +29,7 @@ try {
 
 #Get a list of all Exchange certificates, find the special Auth Cert, and get its expiration date
 $count = 0
-$expiration = "unest"
+$expiration = "unset"
 $cert_list = Get-ExchangeCertificate
 ForEach ($certificate in $cert_list) {
 	$name = $certificate | select -ExpandProperty Subject
