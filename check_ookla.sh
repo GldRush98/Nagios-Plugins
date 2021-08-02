@@ -5,13 +5,13 @@
 # You must specify the full path to the speedtest binary on your system below.
 # You can also change which speedtest server it uses by setting the server value below (usually you'll want this set to your closest/fastest server)
 # All speed values are treated as Mbps.
-# Note: The very first time the check is run a license accpetance message will break the output. This shouldn't happen again after the first run.
+# Note: The very first time the check is run a license acceptance message will break the output. This shouldn't happen again after the first run.
 # Written by Nick Overstreet https://www.nickoverstreet.com/
-# Last modified 1-5-2020
+# Last modified 8-2-2021
 ##################################
 
 #This needs to be the full path to the speedtest binary
-speedtest="/usr/local/nagios/libexec/speedtest"
+speedtest="/usr/local/ncpa/plugins/speedtest"
 #Specify a speedtest server id. Usually you want the one closest to you. (found from ./speedtest --servers)
 server="6907" #CTI Fiber
 
@@ -23,7 +23,7 @@ up_crit=5
 script_name=`basename $0`
 
 print_version() {
-	echo "$script_name: Version 1.1 (C)2019, Nick Overstreet (https://www.nickoverstreet.com/)"
+	echo "$script_name: Version 1.1 (C)2021, Nick Overstreet (https://www.nickoverstreet.com/)"
 	echo "Speedtest binary: `sudo $speedtest --version | head -n 1` ($speedtest)"
 }
 
@@ -105,8 +105,8 @@ fi
 
 
 #Ok, on to the main business
-#Note, this version needs to be run as root when headless due to a bug in Ookla's binary. Hopefully this can be removed in the future once they release a fixed version.
-cli_output=`sudo $speedtest --server-id=$server --format=tsv --accept-license`
+#Note, this version needs to be run as root when headless due to a bug in Ookla's binary. I reported this to them but they don't seem to care. I suspect they likely don't want their binary used like this.
+cli_output=`sudo $speedtest --server-id=$server --format=tsv --accept-license 2>&1`
 cli_exit=$?
 #Dummy data for testing so I don't have to wait for a speedtest to run every single time
 #cli_output="CTI Fiber - Taylorville, IL	6907	0.501	0.144	0	117914450	117529470	425087912	422982398	https://www.speedtest.net/result/c/guid"
