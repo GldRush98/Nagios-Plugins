@@ -7,6 +7,8 @@ A plugin or two I've written or modified for use in Nagios
 
 **check_file_count.php** - [*Windows/Linux*] Counts the number of files in a directory to see if they are within specified thresholds. Written for Windows, but should run on Linux too.
 
+**check_file_exists.sh** - [*Linux*] Checks if the specified file (or directory) exists on the system.
+
 **check_kernel_version**	- [*Linux*] Checks if your RHEL/CentOS system is running the newest installed kernel. If a newer kernel is installed and not running, that likely indicates the system needs a reboot to use the new kernel.
 
 **check_ldap.ps1**	- [*Windows*] Check for LDAP connectivity and optionally run a search query on the specified server.
