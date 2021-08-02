@@ -15,15 +15,15 @@ while :; do
 	case "$1" in
 	-n|--negate)
 		negate=true
-	;;
+		;;
 	--)
 		shift
-	break
-	;;
+		break
+		;;
 	*)
 		echo >&2 "$PROGRAM: Internal error: [$1] not recognized!"
 		exit 3
-	;;
+		;;
 	esac
 shift
 done
