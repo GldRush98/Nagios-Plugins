@@ -13,9 +13,11 @@ A plugin or two I've written or modified for use in Nagios
 
 **check_ldap.ps1**	- [*Windows*] Check for LDAP connectivity and optionally run a search query on the specified server.
 
-**check_nic_speed.php** = [*Windows*] Checks your network card's link speed, to make sure it is connected at what it is supposed to (i.e. gigabit).
+**check_nic_speed.php** - [*Windows*] Checks your network card's link speed, to make sure it is connected at what it is supposed to (i.e. gigabit).
 
-**check_ookla.sh**	- [*Linux*] Monitors your internets speed with Ookla's speedtest CLI program.
+**check_ookla.sh**	- [*Linux*] Monitors your internet speed with Ookla's speedtest CLI program.
+
+**check_weather.php** - [*N/A*] A plugin that runs locally on your Nagios machine and checks NWS's Weather Alert system for any active Watches or Warnings in your county. It may be useful to know if a weather event could be impacting your particular location. Should work for any State/Territory and County covered by the NWS.
 
 **check_yum.sh** - [*Linux*] A quick and simple script to check for updates via yum on Redhat/CentOS systems, with some perfdata.
 
