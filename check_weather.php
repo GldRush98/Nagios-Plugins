@@ -3,8 +3,8 @@
 //The idea came from a python script that did the same thing, but the code hadn't been updated in over a decade and I got tired of putting in hacky work-arounds to keep it functioning.
 //So here is a php version that is hopefully a lot simpler to understand and maintain going forward.
 //By: Nick Overstreet
-//Version: 1.0
-//Last Modified: 5/25/2022
+//Version: 1.1
+//Last Modified: 6/13/2022
 
 if(!isset($argv) || count($argv) != 3)
 {
@@ -50,6 +50,7 @@ $alert_list = "";    //This is a list of the name of the alert, i.e. "Thundersto
 $alert_details = ""; //This is a list of the alert details, i.e. "Thunderstorm Watch issued May 23 at 6:52PM CDT until May 23 at 10:00PM CDT by NWS"
 $output = "Weather Unknown: Something went wrong."; //Default output state in case something weird happens
 $exit_code = 3;      //Nagios Unknown return code
+$previous_state_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "check_weather_previous_state.txt";
 
 //Retrieve the xml data and convert NWS's special CAP event tags to something that won't break php's XML parser
 $raw_data = curl_retrieve($cap_url);
@@ -62,8 +63,24 @@ if(stripos($raw_data, "NWS CAP Server")!==false) //This string should always be 
 	$xml = new SimpleXMLElement($raw_data);
 }else
 {
-	echo "Retrieval of CAP data was unsuccessful, unreliable service is unreliable.";
-	exit(0);
+	//Check for a previous state file to return the previous state. If non exists, previous state is 0. This will prevent up/downs no matter what state it is in due to NWS's unreliable service.
+	//i.e. if you have a heat/freeze advisory lasting several days and the NWS service goes down during that, we want to avoid up/down notifications caused by their service.
+	if(file_exists($previous_state_file))
+	{
+		$previous_state = file_get_contents($previous_state_file);
+		if(!is_numeric($previous_state))
+		{
+			//If for some reason it's not a number in our previous state file, go back to 0 and delete the file
+			$previous_state = 0 ;
+			unlink($previous_state_file);
+		}
+	}else
+	{
+		$previous_state = 0;
+	}
+	
+	echo "Retrieval of CAP data was unsuccessful, assuming last known status code: $previous_state";
+	exit(intval($previous_state));
 }
 
 #print_r($xml); //XML Output useful for debugging
@@ -131,6 +148,20 @@ if($total_alerts == 0)
 	$exit_code = 0;
 }
 
+//Store previous state if necessary
+if($exit_code == 0)
+{
+	//For a zero code we don't need a state file, so if one exists, delete it
+	if(file_exists($previous_state_file))
+	{
+		unlink($previous_state_file);
+	}
+}else
+{
+	@file_put_contents($previous_state_file, $exit_code);
+}
+
+//Final output
 echo "$output | Special=$special_alerts, Watches=$watch_alerts, Warnings=$warning_alerts\n$alert_details";
 exit($exit_code);
 ?>
