@@ -4,7 +4,7 @@
 //So here is a php version that is hopefully a lot simpler to understand and maintain going forward.
 //By: Nick Overstreet
 //Version: 1.1
-//Last Modified: 6/13/2022
+//Last Modified: 6/15/2022
 
 if(!isset($argv) || count($argv) != 3)
 {
@@ -50,7 +50,7 @@ $alert_list = "";    //This is a list of the name of the alert, i.e. "Thundersto
 $alert_details = ""; //This is a list of the alert details, i.e. "Thunderstorm Watch issued May 23 at 6:52PM CDT until May 23 at 10:00PM CDT by NWS"
 $output = "Weather Unknown: Something went wrong."; //Default output state in case something weird happens
 $exit_code = 3;      //Nagios Unknown return code
-$previous_state_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "check_weather_previous_state.txt";
+$previous_state_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "check_weather_state_" . substr(md5("$state$county"), 0, 8) . ".txt"; //A file name used to store the previous state if needed. A short hash is appended to make it unique to the state/county being checked
 
 //Retrieve the xml data and convert NWS's special CAP event tags to something that won't break php's XML parser
 $raw_data = curl_retrieve($cap_url);
