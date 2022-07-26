@@ -4,7 +4,7 @@
 //So here is a php version that is hopefully a lot simpler to understand and maintain going forward.
 //By: Nick Overstreet
 //Version: 1.1
-//Last Modified: 6/15/2022
+//Last Modified: 7/26/2022
 
 if(!isset($argv) || count($argv) != 3)
 {
@@ -41,6 +41,18 @@ function curl_retrieve($url)
 	return $curlresult;
 }
 
+function striposarray($haystack, $needles, $offset = 0)
+{
+	foreach($needles as $needle)
+	{
+		if(stripos($haystack, $needle, $offset) !== false)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 $special_alerts = 0; //Counts special alerts
 $watch_alerts = 0;   //Counts watches
 $warning_alerts = 0; //Counts warnings
@@ -51,13 +63,13 @@ $alert_details = ""; //This is a list of the alert details, i.e. "Thunderstorm W
 $output = "Weather Unknown: Something went wrong."; //Default output state in case something weird happens
 $exit_code = 3;      //Nagios Unknown return code
 $previous_state_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "check_weather_state_" . substr(md5("$state$county"), 0, 8) . ".txt"; //A file name used to store the previous state if needed. A short hash is appended to make it unique to the state/county being checked
+$rejected_alerts = array('child abduction'); //An array of phrases/words that will cause the alert to be completely ignored. Useful for things that aren't actual weather alerts such as domestic dispute alerts.
 
 //Retrieve the xml data and convert NWS's special CAP event tags to something that won't break php's XML parser
 $raw_data = curl_retrieve($cap_url);
 $raw_data = str_replace("cap:", "cap_", $raw_data);
 
 //If the retrieval looks like it has valid data, process it via the XML parser
-//If we don't have proper data we are going to pretend it is okay because this service is NOTORIOUSLY unreliable during completely random times, and I don't want alerts for when their service isn't working right.
 if(stripos($raw_data, "NWS CAP Server")!==false) //This string should always be in the valid data I believe
 {
 	$xml = new SimpleXMLElement($raw_data);
@@ -94,26 +106,29 @@ foreach($xml->entry as $alert)
 	//Check if our county falls under this alert
 	if(stripos($this_area, $county)!==false)
 	{
-		//Add the alert name and details to a list we'll output later
-		$alert_list .= "$alert->cap_event, ";
-		$alert_details .= "$alert->title\n";
+		//Make sure this isn't an alert we should reject
+		if(striposarray($alert->cap_event, $rejected_alerts)==false)
+		{
+			//Add the alert name and details to a list we'll output later
+			$alert_list .= "$alert->cap_event, ";
+			$alert_details .= "$alert->title\n";
 		
-		//Check for watch/warning/other. This is the "simplest" way of doing this IMO, because all of the CAP messages like status, severity, and certainty have very ambigous meanings and different combinations mean different things.
-		if(stripos($this_event, "watch")!==false)
-		{
-			//This alert is a watch
-			$watch_alerts++;
-		}elseif(stripos($this_event, "warning")!==false)
-		{
-			//This alert is a warning
-			$warning_alerts++;
-		}else
-		{
-			//Something that isn't a watch or warning, but still an alert, probably a special statement or advisory of some type.
-			$special_alerts++;
-		}
-		$total_alerts++;
-
+			//Check for watch/warning/other. This is the "simplest" way of doing this IMO, because all of the CAP messages like status, severity, and certainty have very ambigous meanings and different combinations mean different things.
+			if(stripos($this_event, "watch")!==false)
+			{
+				//This alert is a watch
+				$watch_alerts++;
+			}elseif(stripos($this_event, "warning")!==false)
+			{
+				//This alert is a warning
+				$warning_alerts++;
+			}else
+			{
+				//Something that isn't a watch or warning, but still an alert, probably a special statement or advisory of some type.
+				$special_alerts++;
+			}
+			$total_alerts++;
+		}//Rejected alerts check
 	}else //County check
 	{
 		$ignored_alerts++;
