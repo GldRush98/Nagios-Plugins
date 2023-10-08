@@ -2,13 +2,13 @@
 ##################################
 # A nagios plugin to monitor your internet speed
 # This plugin uses the output of Ookla's speedtest CLI client (https://speedtest.net/apps/cli)
-# Tested with speedtest CLI 1.1.1
+# Tested with speedtest CLI 1.2.0
 # You must specify the full path to the speedtest binary on your system below.
 # You can also change which speedtest server it uses by setting the server value below (usually you'll want this set to your closest/fastest server)
 # All speed values are treated as Mbps.
 # Note: The very first time the check is run a license acceptance message will break the output. This shouldn't happen again after the first run.
 # Written by Nick Overstreet https://www.nickoverstreet.com/
-# Last modified 12-15-2021
+# Last modified 10-08-2023
 ##################################
 
 #This needs to be the full path to the speedtest binary
@@ -16,7 +16,7 @@ speedtest="/usr/local/ncpa/plugins/speedtest"
 #Specify a speedtest server id. Usually you want the one closest to you. (found from ./speedtest --servers)
 #You will want to pick the one that gives you the best/most consistent results.
 #You can comment this out and have it auto-pick for you, but I don't recommend that as you will likely get inconsistent results that way.
-#server="6907" #CTI Fiber
+#server="56238" #CTI Fiber
 
 #Some default thresholds in case none are specified
 down_warn=10
@@ -26,7 +26,7 @@ up_crit=5
 script_name=`basename $0`
 
 print_version() {
-	echo "$script_name: Version 1.2 (C)2021, Nick Overstreet (https://www.nickoverstreet.com/)"
+	echo "$script_name: Version 1.2.1 (C)2023, Nick Overstreet (https://www.nickoverstreet.com/)"
 	echo "Speedtest binary: `sudo $speedtest --version | head -n 1` ($speedtest)"
 }
 
@@ -118,7 +118,7 @@ fi
 cli_output=`sudo $speedtest $manual_server --format=tsv --accept-license 2>&1`
 cli_exit=$?
 #Dummy data for testing so I don't have to wait for a speedtest to run every single time
-#cli_output="CTI Fiber - Taylorville, IL	6907	0.501	0.144	0	117914450	117529470	425087912	422982398	https://www.speedtest.net/result/c/guidi	1"
+#cli_output="CTI Fiber - Taylorville, IL	6907	0.501	0.144	0	117914450	117529470	425087912	422982398	https://www.speedtest.net/result/c/guidi	1	1	2	3	4	5	6	7	8	9	10"
 
 #Uses the tab delimiter set by the --format switch and breaks the output apart in to the results array
 IFS=$'\t' read -r -a results <<<"$cli_output"
@@ -135,10 +135,11 @@ IFS=$'\t' read -r -a results <<<"$cli_output"
 #8 Upload data size (bytes) - 422982398
 #9 Results URL - https://www.speedtest.net/result/c/guid
 #10 Unknown return value added in CLI 1.1 - This was always a 1 when I was testing, so I am not sure what it is indicating and is not in the documentation any where.
+#11-20 These are all jitter and latency measurements added in CLI 1.2. This script currently does not use these values.
 
 #Check and make sure the array is the proper size which should mean the speedtest worked, if not try and output some useful information to see what went wrong
-#11 should be the proper count, but 10  is also apparently possible if Ookla's results servers are failing to return a proper result URL
-if [ "${#results[@]}" -ne "11" ] && [ "${#results[@]}" -ne "10" ]; then
+#21 should be the proper count, but 20 is also apparently possible if Ookla's results servers are failing to return a proper result URL
+if [ "${#results[@]}" -ne "21" ] && [ "${#results[@]}" -ne "20" ]; then
 	echo "UNKNOWN - SpeedTest results were bad (results array was wrong size)"
 	echo "This is usually caused by your specified speedtest server going down or other speedtest.net problems"
 	echo "CLI Output: $cli_output"
