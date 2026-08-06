@@ -5,7 +5,7 @@
 //CAP API Documentation: https://vlab.noaa.gov/web/nws-common-alerting-protocol/overview
 //By: Nick Overstreet
 //Version: 1.2
-//Last Modified: 2/8/2023
+//Last Modified: 8/6/2026
 
 if(!isset($argv) || count($argv) != 3)
 {
@@ -32,13 +32,12 @@ function curl_retrieve($url)
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
 	curl_setopt($ch, CURLOPT_TIMEOUT, 10);
 	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE); 
-	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE); 
+	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2); 
 	curl_setopt($ch, CURLOPT_USERAGENT, "check_weather/v1.2 (nagios monitoring)"); //Must set a useragent as the default automated agents are blocked. NWS says this will be an API Key in the future.
 	while($curlresult=="" && $retrycount <= 2){
 		$curlresult=curl_exec ($ch);
 		$retrycount++;
 	}
-	curl_close ($ch);
 	return $curlresult;
 }
 
@@ -64,7 +63,7 @@ $alert_list = "";    //This is a list of the name of the alert, i.e. "Thundersto
 $alert_details = ""; //This is a list of the alert details, i.e. "Thunderstorm Watch issued May 23 at 6:52PM CDT until May 23 at 10:00PM CDT by NWS"
 $output = "Weather Unknown: Something went wrong."; //Default output state in case something weird happens
 $exit_code = 3;      //Nagios Unknown return code
-$previous_state_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "check_weather2_state_" . substr(md5("$state$county"), 0, 8) . ".txt"; //A file name used to store the previous state if needed. A short hash is appended to make it unique to the state/county being checked
+$previous_state_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "check_weather_state_" . substr(md5("$state$county"), 0, 8) . ".txt"; //A file name used to store the previous state if needed. A short hash is appended to make it unique to the state/county being checked
 $rejected_alerts = array('child abduction'); //An array of phrases/words that will cause the alert to be ignored. Uses the "event" value in the API results. Useful for things that aren't actual weather alerts such as domestic dispute alerts.
 $rejected_senders = array(''); //An array of NWS senders to ignore alerts from. Presented in the API results as "senderName". This is because the API 1.2 endpoint will show alerts issued outside of the selected state if those alert zones cross in to the selected state. A problem can arise when neighboring states have identical county names, causing the endpoint to list an out-of-state county inside your state's active areas. There is no way to auto-filter these alerts out using only State and County specifiers, as I want to avoid basing this on SAME or UGC codes. So, if you have an alert come up that doesn't actually apply to you, you can filter out the region that sent it to avoid future false alerts.
 
