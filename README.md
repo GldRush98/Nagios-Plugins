@@ -13,6 +13,8 @@ A plugin or two I've written or modified for use in Nagios
 
 **check_ldap.ps1**	- [*Windows*] Check for LDAP connectivity and optionally run a search query on the specified server.
 
+**check_local_certs.sh** - [*Linux*] Loops through every LetsEncrypt fullchain.pem file in the letsencrypt directory and checks that they're currently valid.
+
 **check_nic_speed.php** - [*Windows*] Checks your network card's link speed, to make sure it is connected at what it is supposed to (i.e. gigabit).
 
 **check_ookla.sh**	- [*Linux*] Monitors your internet speed with Ookla's speedtest CLI program.
