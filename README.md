@@ -17,6 +17,12 @@ A plugin or two I've written or modified for use in Nagios
 
 **check_ookla.sh**	- [*Linux*] Monitors your internet speed with Ookla's speedtest CLI program.
 
+**check_pjsip_extensions** - [*Linux*]  Check the output of pjsip show extensions, verify the extensions, and report it to Nagios. Can alert on number of Avail extensions.
+
+**check_pjsip_transports** - [*Linux*] Check the output of pjsip show extensions, verify the Transports (sip providers), and report it to Nagios. Can alert when transport number is not the expected count.
+
+**check_ufw** - [*Linux*] Check the UFW (Ultimate FireWall) status. This checks several things regarding UFW's state, including active status, incoming policy, outgoing policy, logging, and rule count.
+
 **check_weather.php** - [*N/A*] A plugin that runs locally on your Nagios machine and checks NWS's Weather Alert system for any active Watches or Warnings in your county. It may be useful to know if a weather event could be impacting your particular location. Should work for any State/Territory and County covered by the NWS.
 
 **check_yum.sh** - [*Linux*] A quick and simple script to check for updates via yum on Redhat/CentOS systems, with some perfdata.
