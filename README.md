@@ -17,9 +17,9 @@ A plugin or two I've written or modified for use in Nagios
 
 **check_ookla.sh**	- [*Linux*] Monitors your internet speed with Ookla's speedtest CLI program.
 
-**check_pjsip_extensions** - [*Linux*]  Check the output of pjsip show extensions, verify the extensions, and report it to Nagios. Can alert on number of Avail extensions.
+**check_pjsip_extensions** - [*Linux*]  Check the Asterisk output of pjsip show extensions, verify the extensions, and report it to Nagios. Can alert on number of Avail extensions.
 
-**check_pjsip_transports** - [*Linux*] Check the output of pjsip show extensions, verify the Transports (sip providers), and report it to Nagios. Can alert when transport number is not the expected count.
+**check_pjsip_transports** - [*Linux*] Check the Asterisk output of pjsip show extensions, verify the Transports (sip providers), and report it to Nagios. Can alert when transport number is not the expected count.
 
 **check_ufw** - [*Linux*] Check the UFW (Ultimate FireWall) status. This checks several things regarding UFW's state, including active status, incoming policy, outgoing policy, logging, and rule count.
 
