@@ -1,0 +1,126 @@
+#!/bin/bash
+#
+# check_pjsip_transports - Nagios plugin to check the output of pjsip show extensions, verify the Transports (sip providers), and report it to Nagios
+#
+# 2026/09 - Nick Overstreet - Initial script created via ChatGPT and hand tuning
+# Give nagios the specific permisions it needs to run this via sudoers:
+# vim /etc/sudoers.d/nagios-asterisk
+#   nagios ALL=(root) NOPASSWD: /usr/sbin/asterisk -rx pjsip show endpoints
+# sudo chmod 0440 /etc/sudoers.d/nagios-asterisk
+# sudo visudo -cf /etc/sudoers.d/nagios-asterisk
+# Test check: sudo -u nagios /usr/local/ncpa/plugins/check_pjsip_transports 2
+#
+
+# Nagios exit codes
+OK=0
+WARNING=1
+CRITICAL=2
+UNKNOWN=3
+
+# Asterisk CLI path
+ASTERISK_CLI="/usr/bin/sudo /usr/sbin/asterisk -rx"
+
+# Expected number of transports
+EXPECTED_TRANSPORTS="${1}"
+
+# Validate argument
+if [[ -z "${EXPECTED_TRANSPORTS}" || ! "${EXPECTED_TRANSPORTS}" =~ ^[0-9]+$ ]]; then
+    echo "UNKNOWN - Expected transport count must be supplied as an integer"
+    exit ${UNKNOWN}
+fi
+
+# Get PJSIP endpoint information
+output=$(${ASTERISK_CLI} "pjsip show endpoints" 2>&1)
+asterisk_rc=$?
+
+# Check that the Asterisk command succeeded
+if [[ ${asterisk_rc} -ne 0 ]]; then
+    echo "UNKNOWN - Unable to execute Asterisk CLI - $output"
+    exit ${UNKNOWN}
+fi
+
+# Find endpoints that contain a Transport: line.
+#
+# We only accept real endpoint names and ignore:
+#   - The header line: <Endpoint/CID...>
+#   - The anonymous endpoint
+#
+transport_list=$(echo "${output}" | awk '
+    /^[[:space:]]*Endpoint:/ {
+        endpoint = $2
+
+        # Remove /CID if present.
+        sub(/\/.*$/, "", endpoint)
+
+        # Ignore the table header and anonymous endpoint.
+        if (endpoint ~ /^</ || endpoint == "anonymous") {
+            endpoint = ""
+        }
+
+        next
+    }
+
+    /^[[:space:]]*Transport:/ {
+        if (endpoint != "") {
+            transports[endpoint] = 1
+        }
+
+        next
+    }
+
+    END {
+        count = 0
+
+        for (transport in transports) {
+            names[++count] = transport
+        }
+
+        # Sort transport names alphabetically.
+        for (i = 1; i <= count; i++) {
+            for (j = i + 1; j <= count; j++) {
+                if (names[i] > names[j]) {
+                    tmp = names[i]
+                    names[i] = names[j]
+                    names[j] = tmp
+                }
+            }
+        }
+
+        printf "%d|", count
+
+        for (i = 1; i <= count; i++) {
+            if (i > 1) {
+                printf ","
+            }
+
+            printf "%s", names[i]
+        }
+    }
+')
+
+# Parse results
+transport_count="${transport_list%%|*}"
+transport_names="${transport_list#*|}"
+
+# Nagios performance data
+perfdata="transports=${transport_count};${EXPECTED_TRANSPORTS};${EXPECTED_TRANSPORTS};0"
+
+# Compare actual transport count with expected count
+if [[ ${transport_count} -lt ${EXPECTED_TRANSPORTS} ]]; then
+
+    echo "CRITICAL - PJSIP transports: ${transport_count}/${EXPECTED_TRANSPORTS}; found: ${transport_names} | ${perfdata}"
+
+    exit ${CRITICAL}
+
+elif [[ ${transport_count} -gt ${EXPECTED_TRANSPORTS} ]]; then
+
+    echo "WARNING - PJSIP transports: ${transport_count}/${EXPECTED_TRANSPORTS}, expected ${EXPECTED_TRANSPORTS}; found: ${transport_names} | ${perfdata}"
+
+    exit ${WARNING}
+
+else
+
+    echo "OK - PJSIP transports: ${transport_count}/${EXPECTED_TRANSPORTS}; registered: ${transport_names} | ${perfdata}"
+
+    exit ${OK}
+fi

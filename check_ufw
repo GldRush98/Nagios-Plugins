@@ -1,0 +1,442 @@
+#!/usr/bin/env bash
+#
+# check_ufw - Nagios plugin for UFW firewall health
+# 
+# 2026/09 - Nick Overstreet - Had ChatGPT rerwrite Marc's original generic health script in to a Nagios plugin with perfdata output.
+# Give nagios the specific permisions it needs to run this via sudoers:
+# vim /etc/sudoers.d/nagios-ufw
+#	nagios ALL=(root) NOPASSWD: /usr/sbin/ufw status verbose, /usr/sbin/ufw status numbered, /usr/bin/systemctl is-enabled ufw
+# sudo chmod 0440 /etc/sudoers.d/nagios-ufw
+# sudo visudo -cf /etc/sudoers.d/nagios-ufw
+# Test check: sudo -u nagios /usr/local/ncpa/plugins/check_ufw
+#
+# Copyright (c) 2026 Marc Allgeier
+# SPDX-License-Identifier: MIT
+# Source: https://github.com/thanhan92-f1/ubuntu-server-security/blob/main/ufw/scripts/check-ufw-status.sh
+#
+# Checks:
+#   - UFW installed
+#   - UFW active
+#   - UFW systemd service enabled
+#   - Default incoming policy
+#   - Default outgoing policy
+#   - IPv6 configuration
+#   - UFW logging
+#   - Number of configured rules
+#
+# Nagios exit codes:
+#   0 = OK
+#   1 = WARNING
+#   2 = CRITICAL
+#   3 = UNKNOWN
+#
+# Performance data:
+#   ufw_active
+#   ufw_enabled
+#   incoming_policy
+#   outgoing_policy
+#   ipv4_rules
+#   ipv6_enabled
+#   logging_enabled
+#
+
+set -uo pipefail
+
+readonly SCRIPT_NAME="${0##*/}"
+readonly VERSION="1.0.0"
+
+# Nagios plugin return codes
+readonly STATE_OK=0
+readonly STATE_WARNING=1
+readonly STATE_CRITICAL=2
+readonly STATE_UNKNOWN=3
+
+# ---------------------------------------------------------------------------
+# Runtime state
+# ---------------------------------------------------------------------------
+
+UFW_INSTALLED=0
+UFW_ACTIVE=0
+UFW_ENABLED=0
+
+INCOMING_POLICY="unknown"
+OUTGOING_POLICY="unknown"
+
+IPV4_RULES=0
+IPV6_ENABLED=0
+LOGGING_ENABLED=0
+
+VERBOSE=0
+
+# ---------------------------------------------------------------------------
+# Usage
+# ---------------------------------------------------------------------------
+
+usage() {
+    cat <<EOF
+Usage:
+  $SCRIPT_NAME [OPTIONS]
+
+Checks the health of the Uncomplicated Firewall (UFW) and returns
+Nagios-compatible status and performance data.
+
+Options:
+  -v, --verbose    Show additional diagnostic information
+  -V, --version    Show plugin version
+  -h, --help       Show this help
+
+Nagios exit codes:
+  0  OK
+  1  WARNING
+  2  CRITICAL
+  3  UNKNOWN
+
+Examples:
+  $SCRIPT_NAME
+  $SCRIPT_NAME --verbose
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# Utility functions
+# ---------------------------------------------------------------------------
+
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Run a command without ever allowing sudo to prompt for a password.
+run_privileged() {
+    if [[ $EUID -eq 0 ]]; then
+        "$@"
+        return $?
+    fi
+
+    if ! command_exists sudo; then
+        return 127
+    fi
+
+    sudo -n "$@"
+}
+
+unknown() {
+    printf 'UNKNOWN - %s\n' "$1"
+    exit "$STATE_UNKNOWN"
+}
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -v|--verbose)
+                VERBOSE=1
+                ;;
+
+            -V|--version)
+                printf '%s version %s\n' "$SCRIPT_NAME" "$VERSION"
+                exit "$STATE_OK"
+                ;;
+
+            -h|--help)
+                usage
+                exit "$STATE_OK"
+                ;;
+
+            *)
+                printf 'UNKNOWN - Unknown option: %s\n' "$1"
+                printf 'Usage: %s [-v|--verbose] [-V|--version] [-h|--help]\n' \
+                    "$SCRIPT_NAME"
+                exit "$STATE_UNKNOWN"
+                ;;
+        esac
+
+        shift
+    done
+}
+
+# ---------------------------------------------------------------------------
+# UFW collection
+# ---------------------------------------------------------------------------
+
+check_dependencies() {
+    if ! command_exists ufw; then
+        printf 'CRITICAL - UFW is not installed | '
+        printf 'ufw_installed=0 '
+        printf 'ufw_active=0 '
+        printf 'ufw_enabled=0 '
+        printf 'incoming_policy=0 '
+        printf 'outgoing_policy=0 '
+        printf 'ipv4_rules=0 '
+        printf 'ipv6_enabled=0 '
+        printf 'logging_enabled=0\n'
+        exit "$STATE_CRITICAL"
+    fi
+
+    if ! command_exists systemctl; then
+        unknown "systemctl command not found"
+    fi
+}
+
+collect_ufw_status() {
+    local status_output
+
+    status_output="$(run_privileged ufw status verbose 2>/dev/null)"
+    local rc=$?
+
+    if (( rc != 0 )); then
+        unknown "Unable to query UFW status; sudo permissions may be missing"
+    fi
+
+    printf '%s' "$status_output"
+}
+
+collect_data() {
+    local status_output
+    local numbered_output
+    local default_line
+    local logging_line
+    local ipv6_value
+    local enabled_state
+
+    status_output="$(collect_ufw_status)"
+
+    UFW_INSTALLED=1
+
+    # -----------------------------------------------------------------------
+    # Active state
+    # -----------------------------------------------------------------------
+
+    if grep -q '^Status: active$' <<< "$status_output"; then
+        UFW_ACTIVE=1
+    else
+        UFW_ACTIVE=0
+    fi
+
+    # -----------------------------------------------------------------------
+    # Systemd enabled state
+    # -----------------------------------------------------------------------
+
+    enabled_state="$(systemctl is-enabled ufw 2>/dev/null || true)"
+
+    if [[ "$enabled_state" == "enabled" ]]; then
+        UFW_ENABLED=1
+    else
+        UFW_ENABLED=0
+    fi
+
+    # -----------------------------------------------------------------------
+    # Default policies
+    #
+    # Typical UFW output:
+    #
+    # Default: deny (incoming), allow (outgoing), disabled (routed)
+    # -----------------------------------------------------------------------
+
+    default_line="$(grep '^Default:' <<< "$status_output" | head -n1 || true)"
+
+    if [[ -n "$default_line" ]]; then
+        INCOMING_POLICY="$(
+            sed -n 's/.*Default: \([^ ]*\) (incoming).*/\1/p' \
+                <<< "$default_line"
+        )"
+
+        OUTGOING_POLICY="$(
+            sed -n 's/.*(incoming), \([^ ]*\) (outgoing).*/\1/p' \
+                <<< "$default_line"
+        )"
+    fi
+
+    INCOMING_POLICY="${INCOMING_POLICY:-unknown}"
+    OUTGOING_POLICY="${OUTGOING_POLICY:-unknown}"
+
+    # -----------------------------------------------------------------------
+    # Logging
+    #
+    # Typical output:
+    #   Logging: on (low)
+    # -----------------------------------------------------------------------
+
+    logging_line="$(grep '^Logging:' <<< "$status_output" | head -n1 || true)"
+
+    if grep -qE '^Logging:[[:space:]]+on([[:space:]]|\(|$)' \
+        <<< "$logging_line"; then
+        LOGGING_ENABLED=1
+    else
+        LOGGING_ENABLED=0
+    fi
+
+    # -----------------------------------------------------------------------
+    # IPv6
+    # -----------------------------------------------------------------------
+
+    ipv6_value="$(
+        sed -n 's/^[[:space:]]*IPV6[[:space:]]*=[[:space:]]*//p' \
+            /etc/default/ufw 2>/dev/null |
+        head -n1
+    )"
+
+    case "${ipv6_value,,}" in
+        yes|true|1)
+            IPV6_ENABLED=1
+            ;;
+
+        no|false|0)
+            IPV6_ENABLED=0
+            ;;
+
+        *)
+            # UFW's IPv6 setting cannot be determined.
+            IPV6_ENABLED=0
+            ;;
+    esac
+
+    # -----------------------------------------------------------------------
+    # Rule count
+    # -----------------------------------------------------------------------
+
+    numbered_output="$(run_privileged ufw status numbered 2>/dev/null || true)"
+
+    IPV4_RULES="$(
+        grep -Ec '^[[:space:]]*\[[[:space:]]*[0-9]+' \
+            <<< "$numbered_output" || true
+    )"
+
+    IPV4_RULES="${IPV4_RULES:-0}"
+}
+
+# ---------------------------------------------------------------------------
+# Performance data
+# ---------------------------------------------------------------------------
+
+# Nagios performance data must be:
+#
+#   label=value[UOM];warn;crit;min;max
+#
+# Boolean values are represented as 0/1.
+#
+# Policy values:
+#   0 = unknown
+#   1 = allow
+#   2 = deny
+#
+policy_value() {
+    case "$1" in
+        allow)   printf '1' ;;
+        deny)    printf '2' ;;
+        *)       printf '0' ;;
+    esac
+}
+
+build_perfdata() {
+    printf 'ufw_installed=%d;0;0;0;1 ' "$UFW_INSTALLED"
+    printf 'ufw_active=%d;1:;0;0;1 ' "$UFW_ACTIVE"
+    printf 'ufw_enabled=%d;1:;0;0;1 ' "$UFW_ENABLED"
+
+    printf 'incoming_policy=%d;2:2;0;0;2 ' \
+        "$(policy_value "$INCOMING_POLICY")"
+
+    printf 'outgoing_policy=%d;;;;2 ' \
+        "$(policy_value "$OUTGOING_POLICY")"
+
+    printf 'ipv4_rules=%d;;;0; ' "$IPV4_RULES"
+    printf 'ipv6_enabled=%d;;;;1 ' "$IPV6_ENABLED"
+    printf 'logging_enabled=%d;1:;0;0;1' "$LOGGING_ENABLED"
+}
+
+# ---------------------------------------------------------------------------
+# Status evaluation
+# ---------------------------------------------------------------------------
+
+evaluate_status() {
+    local state="$STATE_OK"
+    local message="UFW healthy"
+
+    # UFW must be installed.
+    if (( UFW_INSTALLED == 0 )); then
+        printf 'CRITICAL - UFW is not installed | '
+        build_perfdata
+        printf '\n'
+        exit "$STATE_CRITICAL"
+    fi
+
+    # UFW must be active.
+    if (( UFW_ACTIVE == 0 )); then
+        printf 'CRITICAL - UFW is inactive | '
+        build_perfdata
+        printf '\n'
+        exit "$STATE_CRITICAL"
+    fi
+
+    # Incoming traffic should be denied by default.
+    if [[ "$INCOMING_POLICY" != "deny" ]]; then
+        state="$STATE_CRITICAL"
+        message="UFW default incoming policy is $INCOMING_POLICY"
+    fi
+
+    # UFW should start automatically.
+    if (( UFW_ENABLED == 0 )); then
+        if (( state < STATE_CRITICAL )); then
+            state="$STATE_WARNING"
+            message="UFW active but service is not enabled"
+        fi
+    fi
+
+    # Logging should be enabled.
+    if (( LOGGING_ENABLED == 0 )); then
+        if (( state < STATE_CRITICAL )); then
+            state="$STATE_WARNING"
+            message="UFW active but logging is disabled"
+        fi
+    fi
+
+    case "$state" in
+        "$STATE_OK")
+            printf 'OK - %s | ' "$message"
+            ;;
+
+        "$STATE_WARNING")
+            printf 'WARNING - %s | ' "$message"
+            ;;
+
+        "$STATE_CRITICAL")
+            printf 'CRITICAL - %s | ' "$message"
+            ;;
+
+        *)
+            printf 'UNKNOWN - %s | ' "$message"
+            state="$STATE_UNKNOWN"
+            ;;
+    esac
+
+    build_perfdata
+    printf '\n'
+
+    if (( VERBOSE == 1 )); then
+        printf 'UFW installed:       %s\n' "$UFW_INSTALLED" >&2
+        printf 'UFW active:          %s\n' "$UFW_ACTIVE" >&2
+        printf 'UFW enabled:         %s\n' "$UFW_ENABLED" >&2
+        printf 'Incoming policy:     %s\n' "$INCOMING_POLICY" >&2
+        printf 'Outgoing policy:     %s\n' "$OUTGOING_POLICY" >&2
+        printf 'IPv4 rules:          %s\n' "$IPV4_RULES" >&2
+        printf 'IPv6 enabled:        %s\n' "$IPV6_ENABLED" >&2
+        printf 'Logging enabled:     %s\n' "$LOGGING_ENABLED" >&2
+    fi
+
+    exit "$state"
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+main() {
+    parse_args "$@"
+    check_dependencies
+    collect_data
+    evaluate_status
+}
+
+main "$@"

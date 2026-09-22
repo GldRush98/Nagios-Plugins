@@ -1,0 +1,161 @@
+#!/bin/bash
+#
+# check_pjsip_extensions - Nagios plugin to check the output of pjsip show extensions, verify the extensions, and report it to Nagios
+#
+# 2026/09 - Nick Overstreet - Initial script created via ChatGPT and hand tuning
+# Give nagios the specific permisions it needs to run this via sudoers:
+# vim /etc/sudoers.d/nagios-asterisk
+#   nagios ALL=(root) NOPASSWD: /usr/sbin/asterisk -rx pjsip show endpoints
+# sudo chmod 0440 /etc/sudoers.d/nagios-asterisk
+# sudo visudo -cf /etc/sudoers.d/nagios-asterisk
+# Test check: sudo -u nagios /usr/local/ncpa/plugins/check_pjsip_extensions 8
+#
+
+# Nagios exit codes
+OK=0
+WARNING=1
+CRITICAL=2
+UNKNOWN=3
+
+# Asterisk CLI path
+ASTERISK_CLI="/usr/bin/sudo /usr/sbin/asterisk -rx"
+
+# Expected number of registered extensions
+EXPECTED_REGISTRATIONS="${1}"
+
+# Validate argument
+if [[ -z "${EXPECTED_REGISTRATIONS}" || ! "${EXPECTED_REGISTRATIONS}" =~ ^[0-9]+$ ]]; then
+    echo "UNKNOWN - Expected registration count must be supplied as an integer"
+    exit ${UNKNOWN}
+fi
+
+# Get PJSIP endpoint information
+output=$(${ASTERISK_CLI} "pjsip show endpoints" 2>&1)
+asterisk_rc=$?
+
+# Check that the Asterisk command succeeded
+if [[ ${asterisk_rc} -ne 0 ]]; then
+    echo "UNKNOWN - Unable to execute Asterisk CLI - $output"
+    exit ${UNKNOWN}
+fi
+
+# Count registered numeric extensions with an Avail contact.
+#
+# Example:
+#
+# Contact:  210/sip:210@192.168.1.45:14573;x-ast-orig- abc123defg Avail 14.707
+#
+# Fields after whitespace splitting:
+#   $1 = Contact:
+#   $2 = 210/sip:210@192.168.1.45:14573;x-ast-orig-
+#   $3 = abc123defg
+#   $4 = Avail
+#   $5 = 14.707
+#
+# We require:
+#   - Numeric extension
+#   - Contact status exactly "Avail"
+
+registered_count=$(echo "${output}" | awk '
+    /^[[:space:]]*Contact:/ {
+        contact = $2
+        status = $4
+
+        if (contact ~ /^[0-9]+\// && status == "Avail") {
+            count++
+        }
+    }
+
+    END {
+        print count + 0
+    }
+')
+
+# Build a list of extensions that have a Contact but are not Avail.
+#
+# This is useful for identifying an extension that exists but has
+# an unavailable/unreachable contact.
+
+unavailable_extensions=$(echo "${output}" | awk '
+    /^[[:space:]]*Endpoint:/ {
+        endpoint = $2
+
+        # Only consider numeric extensions.
+        if (endpoint ~ /^[0-9]+\//) {
+            ext = endpoint
+            sub(/\/.*$/, "", ext)
+
+            # Remember that this is a configured extension.
+            extensions[ext] = 1
+        }
+
+    }
+
+    /^[[:space:]]*Contact:/ {
+        contact = $2
+        status = $4
+
+        if (contact ~ /^[0-9]+\//) {
+            ext = contact
+            sub(/\/.*$/, "", ext)
+
+            # An Avail contact means the extension is registered.
+            if (status == "Avail") {
+                available[ext] = 1
+            }
+        }
+    }
+
+    END {
+        for (ext in extensions) {
+            if (!(ext in available)) {
+                missing[++count] = ext
+            }
+        }
+
+        # Sort numerically before printing.
+        for (i = 1; i <= count; i++) {
+            for (j = i + 1; j <= count; j++) {
+                if ((missing[i] + 0) > (missing[j] + 0)) {
+                    tmp = missing[i]
+                    missing[i] = missing[j]
+                    missing[j] = tmp
+                }
+            }
+        }
+
+        for (i = 1; i <= count; i++) {
+            if (i > 1) {
+                printf ","
+            }
+            printf "%s", missing[i]
+        }
+    }
+')
+
+# Nagios performance data
+perfdata="registered_extensions=${registered_count};${EXPECTED_REGISTRATIONS};${EXPECTED_REGISTRATIONS};0"
+
+# Compare actual registered extension count with expected count
+if [[ ${registered_count} -lt ${EXPECTED_REGISTRATIONS} ]]; then
+
+    if [[ -n "${unavailable_extensions}" ]]; then
+        echo "CRITICAL - PJSIP registered extensions: ${registered_count}/${EXPECTED_REGISTRATIONS}; unavailable: ${unavailable_extensions} | ${perfdata}"
+    else
+        echo "CRITICAL - PJSIP registered extensions: ${registered_count}/${EXPECTED_REGISTRATIONS} | ${perfdata}"
+    fi
+
+    exit ${CRITICAL}
+
+elif [[ ${registered_count} -gt ${EXPECTED_REGISTRATIONS} ]]; then
+	# This was originally a warning state, it can be easily changed back, just edit the output and set the output to exit ${WARNING} instead, but that WILL warn on extensions OVER your exact count...
+    echo "OK - PJSIP registered extensions: ${registered_count}/${EXPECTED_REGISTRATIONS}, expected ${EXPECTED_REGISTRATIONS} | ${perfdata}"
+
+    exit ${OK}
+
+else
+
+    echo "OK - PJSIP registered extensions: ${registered_count}/${EXPECTED_REGISTRATIONS} | ${perfdata}"
+
+    exit ${OK}
+fi
